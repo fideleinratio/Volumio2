@@ -27,15 +27,13 @@ last_100.prototype.onVolumioStart = function () {
 
 last_100.prototype.onStart = function () {
     var self = this;
-    var defer = libQ.defer();
     self.addToBrowseSources();
     setTimeout(function() {
         self.listenState();
     },3000)
 
-
-    return defer.promise;
-}
+    return libQ.resolve();
+};
 
 /**
  * listen to changes in the state, saves them and write them on file
