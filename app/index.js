@@ -59,34 +59,25 @@ function CoreCommandRouter(server) {
     this.configManager=new(require(__dirname+'/configManager.js'))(this.logger);
 
 
-    this.pluginManager.loadPlugins();
-    this.pluginManager.startPlugins();
+    var self=this;
+    this.pluginManager.loadPlugins().then(function(){
+	  // Most of the following are dependant on plugins onVolumioStart() completion.
+	  // loadPlugins has completed. continue ...
+	  self.stateMachine = new (require('./statemachine.js'))(self);
+	  self.playListManager = new (require('./playlistManager.js'))(self);
+	  self.platformspecific = new (require(__dirname + '/platformSpecific.js'))(self);
+	  self.loadI18nStrings();
+	  self.musicLibrary.updateBrowseSourcesLang();
+	  self.volumeControl = new (require('./volumecontrol.js'))(self);
+	  // some plugins onStart() are dependant on above. Now startPlugins...
+	  return  self.pluginManager.startPlugins();
+    }).then(function(){
+	  self.pushConsoleMessage('BOOT COMPLETED');
+	  self.startupSound();
+	  self.closeModals();
+    });
 
-    this.loadI18nStrings();
-    this.musicLibrary.updateBrowseSourcesLang();
-
-    // Start the state machine
-    this.stateMachine = new (require('./statemachine.js'))(this);
-
-
-    // Start the volume controller
-    this.volumeControl = new (require('./volumecontrol.js'))(this);
-
-    // Start the playListManager.playPlaylistlist FS
-    //self.playlistFS = new (require('./playlistfs.js'))(self);
-
-    this.playListManager = new (require('./playlistManager.js'))(this);
-
-    this.platformspecific = new (require(__dirname + '/platformSpecific.js'))(this);
-
-    this.pushConsoleMessage('BOOT COMPLETED');
-
-    this.startupSound();
-
-
-    	this.closeModals();
-
-}
+};
 
 // Methods usually called by the Client Interfaces ----------------------------------------------------------------------------
 
