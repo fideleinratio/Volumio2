@@ -28,9 +28,7 @@ myVolumio.prototype.onVolumioStart = function ()
 myVolumio.prototype.onStart = function ()
 {
     var self = this;
-    var defer = libQ.defer();
-
-    return defer.promise;
+    return libQ.resolve();
 }
 
 myVolumio.prototype.onStop = function () {
