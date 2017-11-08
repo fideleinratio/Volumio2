@@ -321,23 +321,47 @@ PluginManager.prototype.stopPlugin = function (category, name) {
 
 PluginManager.prototype.startPlugins = function () {
 	var self = this;
-	var defer_startList=[];
+	var priority_array = new HashMap();
 
 	self.logger.info("___________ START PLUGINS ___________");
 	
 /*	
-    each plugin's onStart() is launched following plugins.json order.
-	Note: there is no resolution strategy: each plugin completes
-	at it's own pace, and in whatever order.
-	Should completion order matter, a new promise strategy should be
-	implemented below (chain by start order, or else...)
+    each plugin's onStart() is launched in batches by priority order
 */	
 
 	self.plugins.forEach(function (value,key) {
-		defer_startList.push(self.startPlugin(value.category,value.name));
+		var boot_priority= value.boot_priority;
+		if (boot_priority == undefined)
+			boot_priority = 100;
+
+		var plugin_array = priority_array.get(boot_priority);
+		if (plugin_array == undefined)
+			plugin_array = [];
+		
+		plugin_array.push(value);
+		priority_array.set(boot_priority, plugin_array);
+
 	});
 	
-	return libQ.all(defer_startList);		
+	var defer_start_priorities = libQ.resolve();
+	priority_array.forEach(function(plugin_array, boot_priority) {
+
+		defer_start_priorities = defer_start_priorities.then(function() {
+			var startList = [];
+
+			if (plugin_array != undefined) {
+				plugin_array.forEach(function(value) {
+					startList.push(self.startPlugin(value.category,value.name));
+				});
+			}
+
+			return libQ.all(startList);
+		});
+
+	});
+
+	return defer_start_priorities.promise;
+		
 };
 
 PluginManager.prototype.stopPlugins = function () {
