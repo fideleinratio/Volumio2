@@ -101,6 +101,7 @@ PluginManager.prototype.loadPlugin = function (folder) {
 
 	var category = package_json.volumio_info.plugin_type;
 	var name = package_json.name;
+	var boot_priority = package_json.volumio_info.boot_priority;
 
 	var key = category + '.' + name;
 	var configForPlugin = self.config.get(key + '.enabled');
@@ -122,7 +123,8 @@ PluginManager.prototype.loadPlugin = function (folder) {
 			name: name,
 			category: category,
 			folder: folder,
-			instance: pluginInstance
+			instance: pluginInstance,
+			boot_priority: boot_priority
 		};
 
 
@@ -160,7 +162,6 @@ PluginManager.prototype.loadPlugin = function (folder) {
 
 PluginManager.prototype.loadPlugins = function () {
 	var self = this;
-	var defer_loadList=[];
 	var priority_array = new HashMap();
 
 	for (var ppaths in self.pluginPath) {
@@ -206,21 +207,25 @@ PluginManager.prototype.loadPlugins = function () {
 	}
 
 /*	
-    each plugin's onVolumioStart() is launched by priority order.
-	Note: there is no resolution strategy: each plugin completes
-	at it's own pace, and in whatever order.
-	Should completion order matter, a new promise strategy should be
-	implemented below (chain by boot-priority order, or else...)
+    each plugin's onVolumioStart() is launched in batches by priority order
 */	
+	var defer_boot_priorities = libQ.resolve();
 	priority_array.forEach(function(plugin_array) {
-		if (plugin_array != undefined) {
-			plugin_array.forEach(function(folder) {
-				defer_loadList.push(self.loadPlugin(folder));
-			});
-		}
-	});
+
+		defer_boot_priorities = defer_boot_priorities.then(function() {
+			var loadList = [];
+			if (plugin_array != undefined) {
+				plugin_array.forEach(function(folder) {
+					loadList.push(self.loadPlugin(folder));
+				});
+			}
+
+			return libQ.all(loadList);
+		});
 	
-	return libQ.all(defer_loadList);
+	});
+	return defer_boot_priorities.promise;
+
 };
 
 PluginManager.prototype.getPackageJson = function (folder) {
